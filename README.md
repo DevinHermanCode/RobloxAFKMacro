@@ -15,6 +15,11 @@ I will likely not be updating this after initial release
 2. Configure your AFK keys and interval loop timing
 3. README button in the UI for more information
 
+### Notice
+This app simulates KEY PRESSES ONLY, and is specifically for skill hotkeys
+
+i.e sword skills are tied to the z,x,c,v keys in game xyz, etc.
+
 ⚠️ Windows SmartScreen Warning
 
 Because this app is unsigned, you may see a red warning when opening it.
