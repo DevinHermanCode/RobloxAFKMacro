@@ -1,1 +1,0 @@
-powershell.exe -NoExit -Command "cd 'X:\Downloads\py scripts\yet_another_rbx_afk_gui'"
