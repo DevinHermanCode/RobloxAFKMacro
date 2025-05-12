@@ -251,7 +251,15 @@ class AFKGui:
         self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
         self.root.after(500, self.update_roblox_focus)
         os.makedirs(APPDATA_DIR, exist_ok=True)
+        self.interval_mapping   = {}
+        self.hold_durations     = {}
+        self.key_loopers        = {}
+        self.toggle_buttons     = {}
+        self.remove_buttons     = {}
+        self.key_labels         = {}
+        self.key_order = []
         self.load_config()
+        self.update_display()
         self.setup_tray_icon()
 
     # Hold(s) text box placeholder functions
@@ -338,12 +346,13 @@ class AFKGui:
         key = self.key_var.get().strip().lower()
         interval_str = self.interval_entry.get().strip()
         hold_str = self.hold_entry.get().strip()
-        # print(f"DEBUG: raw hold_str = '{hold_str}'")
 
+        # --- basic presence checks ---
         if not key or not interval_str:
             messagebox.showwarning("Input Error", "Key and interval are required.")
             return
 
+        # --- parse interval ---
         try:
             interval = float(interval_str)
             if interval <= 0:
@@ -351,7 +360,8 @@ class AFKGui:
         except ValueError:
             messagebox.showwarning("Input Error", "Interval must be a positive number.")
             return
-        
+
+        # --- parse optional hold duration ---
         hold_duration = None
         if hold_str and hold_str != "(optional)":
             try:
@@ -359,30 +369,67 @@ class AFKGui:
             except ValueError:
                 messagebox.showerror("Error", "Invalid hold duration.")
                 return
-        # print(f"DEBUG: parsed hold_duration = {hold_duration!r}")
 
-        # save mappings
-        self.interval_mapping[key] = interval
-        self.hold_durations[key] = hold_duration
-    
-        looper = KeyLooper(key, interval, hold_duration)
-        self.key_loopers[key] = looper
-        if self.auto_start.get():
-            looper.start()
+        if key in self.interval_mapping:
+            # --- UPDATE existing key, don't change its place in key_order ---
+            self.interval_mapping[key] = interval
+            self.hold_durations[key]  = hold_duration
 
+            # replace or update the looper
+            old = self.key_loopers.pop(key, None)
+            if old:
+                old.stop()
+            looper = KeyLooper(key, interval, hold_duration)
+            self.key_loopers[key] = looper
+            if self.auto_start.get():
+                looper.start()
+
+        else:
+            # --- NEW key: append to order as before ---
+            self.interval_mapping[key] = interval
+            self.hold_durations[key]  = hold_duration
+            self.key_order.append(key)
+
+            looper = KeyLooper(key, interval, hold_duration)
+            self.key_loopers[key] = looper
+            if self.auto_start.get():
+                looper.start()
+
+        # --- persist and redraw ---
         self.save_config()
         self.update_display()
 
     def remove_key_direct(self, key):
+        # Stop the looper if it's running
         if key in self.key_loopers:
             self.key_loopers[key].stop()
             del self.key_loopers[key]
+
+        # Remove the key from the mappings and order
+        if key in self.interval_mapping:
             del self.interval_mapping[key]
-            if key in self.toggle_buttons:
-                self.toggle_buttons[key].destroy()
-                del self.toggle_buttons[key]
-        self.update_display()
+        if key in self.hold_durations:
+            del self.hold_durations[key]
+        if key in self.key_order:
+            self.key_order.remove(key)
+
+        # Clear any UI elements associated with this key
+        if key in self.key_labels:
+            self.key_labels[key].destroy()
+            del self.key_labels[key]
+        if key in self.toggle_buttons:
+            self.toggle_buttons[key].destroy()
+            del self.toggle_buttons[key]
+        if key in self.remove_buttons:
+            self.remove_buttons[key].destroy()
+            del self.remove_buttons[key]
+
+        # Save the updated config
         self.save_config()
+
+        # Update the UI display
+        self.update_display()
+
 
     def toggle_key(self, key):
         if key not in self.key_loopers:
@@ -402,70 +449,71 @@ class AFKGui:
         self.root.after(500, self.update_roblox_focus)
 
     def update_display(self):
-        current = list(self.interval_mapping.keys())
+        # 1) Remove any leftover widgets for keys that have been deleted
         existing = set(self.key_labels.keys())
+        to_remove = existing - set(self.key_order)
+        for key in to_remove:
+            lbl = self.key_labels.pop(key, None)
+            if lbl: lbl.destroy()
+            btn = self.toggle_buttons.pop(key, None)
+            if btn: btn.destroy()
+            rmv = self.remove_buttons.pop(key, None)
+            if rmv: rmv.destroy()
 
-        # Remove widgets for keys no longer in config
-        for key in existing - set(current):
-            self.key_labels[key].destroy()
-            self.toggle_buttons[key].destroy()
-            self.remove_buttons[key].destroy()
-            del self.key_labels[key]
-            del self.toggle_buttons[key]
-            del self.remove_buttons[key]
-
-        # Rebuild or update list from current config
-        for row, key in enumerate(current):
+        # 2) Walk through the ordered list and grid each row
+        for row, key in enumerate(self.key_order):
             interval = self.interval_mapping[key]
-            hold_duration = self.hold_durations.get(key)
-            hold_text = f" | Hold(s): {hold_duration}s" if hold_duration else ""
-            label_text = f"{key} | {interval}s{hold_text}"
+            hold     = self.hold_durations.get(key)
+            hold_text= f" | Hold(s): {hold}s" if hold else ""
+            label_txt     = f"{key} | {interval}s{hold_text}"
 
-            # Ensure looper exists
+            # ensure there's a looper
             looper = self.key_loopers.get(key)
             if not looper:
-                looper = KeyLooper(key, interval, hold_duration)
+                looper = KeyLooper(key, interval, hold)
                 self.key_loopers[key] = looper
 
-            # If widgets don't exist yet, create them
+            # safety: skip if somehow the config dicts got out of sync
+            if key not in self.interval_mapping:
+                continue
+
+            # create widgets if missing
             if key not in self.key_labels:
-                lbl = tk.Label(
-                    self.scrollable_frame,
-                    bg="#2e2e2e", fg="white",
-                    anchor="w", width=30
-                )
-                btn = tk.Button(
-                    self.scrollable_frame,
-                    text="ON/OFF", width=6,
-                    fg="white", relief="raised",
-                    command=lambda k=key: self.toggle_key(k)
-                )
-                rmv = tk.Button(
-                    self.scrollable_frame,
-                    text="❌", width=3,
-                    bg="#cc3300", fg="white",
-                    command=lambda k=key: self.remove_key_direct(k)
-                )
-                self.key_labels[key] = lbl
-                self.toggle_buttons[key] = btn
-                self.remove_buttons[key] = rmv
+                lbl = tk.Label(self.scrollable_frame,
+                            text=label_txt,
+                            bg="#2e2e2e", fg="white",
+                            anchor="w", width=30)
+                btn = tk.Button(self.scrollable_frame,
+                                text="ON/OFF", width=6,
+                                fg="white", relief="raised",
+                                command=lambda k=key: self.toggle_key(k))
+                rmv = tk.Button(self.scrollable_frame,
+                                text="❌", width=3,
+                                bg="#cc3300", fg="white",
+                                command=lambda k=key: self.remove_key_direct(k))
+
+                self.key_labels[key]       = lbl
+                self.toggle_buttons[key]   = btn
+                self.remove_buttons[key]   = rmv
             else:
                 lbl = self.key_labels[key]
                 btn = self.toggle_buttons[key]
                 rmv = self.remove_buttons[key]
+                # update text in case interval/hold changed
+                lbl.config(text=label_txt)
 
-            # Update widget text and placement
-            lbl.config(text=label_text)
-            lbl.grid(row=row, column=0, sticky="w", padx=(5, 0), pady=4)
-
+            # place them into the grid
+            lbl.grid(row=row, column=0, sticky="w", padx=(5,0), pady=4)
             is_running = looper.running.is_set()
             btn.config(bg="green" if is_running else "gray")
             btn.grid(row=row, column=1, padx=5, pady=4)
-
-            rmv.grid(row=row, column=2, padx=(0, 5), pady=4)        
+            rmv.grid(row=row, column=2, padx=(0,5), pady=4)
+                
     def save_config(self):
         try:
             config = {
+                "version": CONFIG_VERSION,
+                "order": self.key_order,
                 "intervals": self.interval_mapping,
                 "hold_durations": self.hold_durations,
                 "auto_start": self.auto_start.get()
@@ -476,32 +524,62 @@ class AFKGui:
             messagebox.showerror("Save Error", f"Failed to save config: {e}")
 
     def load_config(self):
+        # 1) Defaults in case the file is missing or invalid
+        self.key_order        = []
+        self.interval_mapping = {}
+        self.hold_durations   = {}
+        self.auto_start.set(False)
+
         if not os.path.exists(CONFIG_FILE):
             return
+
         try:
             with open(CONFIG_FILE, "r") as f:
                 cfg = json.load(f)
-
-            self.interval_mapping = cfg.get("intervals", {})
-            self.hold_durations = cfg.get("hold_durations", {})
-            self.auto_start.set(cfg.get("auto_start", False))
-
-            # clears existing loopers and buttons for ui update
-            self.key_loopers.clear()
-            self.toggle_buttons.clear()
-
-            # recreate loopers and auto-start if needed
-            for key, interval in self.interval_mapping.items():
-                hold_duration = self.hold_durations.get(key)
-                looper = KeyLooper(key, interval, hold_duration)
-                self.key_loopers[key] = looper
-                if self.auto_start.get():
-                    looper.start()
-
-            self.update_display()
         except Exception as e:
             messagebox.showerror("Load Error", f"Failed to load config: {e}")
-            
+            return
+
+        # 2) Migrate old v1 → v2 if someone still has "intervals"
+        if "intervals" in cfg and "interval_mapping" not in cfg:
+            cfg["interval_mapping"] = cfg.pop("intervals")
+            cfg.setdefault("hold_durations", {})
+            cfg["order"] = list(cfg["interval_mapping"].keys())
+
+            # write that back immediately so everyone shares the new schema
+            cfg["version"] = CONFIG_VERSION
+            cfg["auto_start"] = cfg.get("auto_start", False)
+            with open(CONFIG_FILE, "w") as f:
+                json.dump(cfg, f, indent=2)
+
+        # 3) Load from the proper fields
+        self.interval_mapping = cfg.get("interval_mapping", {})
+        self.hold_durations   = cfg.get("hold_durations", {})
+        self.auto_start.set(cfg.get("auto_start", False))
+
+        # Always fall back to the mapping order if "order" is missing
+        raw_order = cfg.get("order", list(self.interval_mapping.keys()))
+        # 4) Filter to avoid stray keys
+        self.key_order = [k for k in raw_order if k in self.interval_mapping]
+
+        # 5) Clear out any existing loopers/buttons/labels
+        self.key_loopers.clear()
+        self.toggle_buttons.clear()
+        self.remove_buttons.clear()
+        self.key_labels.clear()
+
+        # 6) Recreate loopers (auto-starting if needed) in the exact saved order
+        for key in self.key_order:
+            interval = self.interval_mapping[key]
+            hold     = self.hold_durations.get(key)
+            looper   = KeyLooper(key, interval, hold)
+            self.key_loopers[key] = looper
+            if self.auto_start.get():
+                looper.start()
+
+        # 7) Finally, draw the grid in that order
+        self.update_display()
+                    
     def hide_window(self):
         self.root.withdraw()
 

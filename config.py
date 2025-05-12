@@ -35,7 +35,8 @@ from tkinter import messagebox
 # 1) Your current version
 # ──────────────────────────────────────────────
 CURRENT_VERSION = "1.1"  # update this on each release
-
+CONFIG_VERSION = 2 # update this for major config file handling changes
+# ──────────────────────────────────────────────
 # GitHub API for repo’s latest release
 GITHUB_RELEASES_API = (
     "https://api.github.com/repos/"
@@ -117,7 +118,6 @@ def check_for_updates():
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 APPDATA_DIR = os.path.join(os.getenv("APPDATA"), "RobloxAFKMacro")
 CONFIG_FILE = os.path.join(APPDATA_DIR, "afk_config.json")
-
 
 # ————————————————————————————————
 # 3) Icon loader from base64
