@@ -430,7 +430,6 @@ class AFKGui:
         # Update the UI display
         self.update_display()
 
-
     def toggle_key(self, key):
         if key not in self.key_loopers:
             return

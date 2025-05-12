@@ -34,7 +34,7 @@ from tkinter import messagebox
 # ──────────────────────────────────────────────
 # 1) Your current version
 # ──────────────────────────────────────────────
-CURRENT_VERSION = "1.1"  # update this on each release
+CURRENT_VERSION = "1.2"  # update this on each release
 CONFIG_VERSION = 2 # update this for major config file handling changes
 # ──────────────────────────────────────────────
 # GitHub API for repo’s latest release
