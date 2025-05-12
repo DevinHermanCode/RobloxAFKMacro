@@ -7,7 +7,7 @@ I will likely not be updating this after initial release
 
 ### Download
 
-➡️ [Click here to download the latest .exe](https://github.com/OnixProrgamming/RobloxAFKMacro/releases/latest)
+➡️ [Click here to download the latest .exe](https://github.com/OnixProgramming/RobloxAFKMacro/releases/latest)
 
 ### How to Use
 
