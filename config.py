@@ -37,7 +37,7 @@ from tkinter import messagebox
 # ──────────────────────────────────────────────
 # 1) Your current version
 # ──────────────────────────────────────────────
-CURRENT_VERSION = "1.0"  # update this on each release
+CURRENT_VERSION = "1.1"  # update this on each release
 
 # GitHub API for repo’s latest release
 GITHUB_RELEASES_API = (
@@ -46,74 +46,73 @@ GITHUB_RELEASES_API = (
 )
 ASSET_EXE_NAME  = "Yet_Another_Roblox_AFK_Macro.exe"
 # ──────────────────────────────────────────────
+
+def to_tuple(v: str) -> tuple[int, int, int]:
+    """
+    Normalize a version string into a 3-tuple of ints,
+    padding with zeros if needed (so "1.1" → (1,1,0)).
+    """
+    parts = v.lstrip("v").split(".")
+    nums = [int(x) for x in parts]
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
+
 def check_for_updates():
     if not requests:
-        return  # no requests library available
+        return
 
     try:
         r = requests.get(GITHUB_RELEASES_API, timeout=5)
         r.raise_for_status()
         release = r.json()
 
-        # GitHub tags often start with 'v'
-        latest = release["tag_name"].lstrip("v")
-        if to_tuple(latest) <= to_tuple(CURRENT_VERSION):
-            return  # up to date
-        def to_tuple(v: str):
-            # split on dots, strip any leading “v”
-            parts = v.lstrip("v").split(".")
-            nums  = [int(x) for x in parts]
-            # pad with zeros until we have 3 segments
-            while len(nums) < 3:
-                nums.append(0)
-            return tuple(nums[:3])
-
-        if to_tuple(latest) <= to_tuple(CURRENT_VERSION):
-            return  # already up-to-date
+        latest = release.get("tag_name", "").lstrip("v")
+        if not latest or to_tuple(latest) <= to_tuple(CURRENT_VERSION):
+            return  # already up to date
 
         root = tk.Tk(); root.withdraw()
-        if not messagebox.askyesno(
-            "Update Available",
+        prompt = (
             f"A new version ({latest}) is available!\n"
             f"You have {CURRENT_VERSION}.\n\n"
             "Download and install now?"
-        ):
+        )
+        if not messagebox.askyesno("Update Available", prompt):
             return
 
-        # find your exe asset
+        # Find the .exe asset
         download_url = next(
             (a["browser_download_url"]
              for a in release.get("assets", [])
-             if a["name"] == ASSET_EXE_NAME),
+             if a.get("name") == ASSET_EXE_NAME),
             None
         )
         if not download_url:
             messagebox.showerror(
                 "Update Error",
-                f"Could not find {ASSET_EXE_NAME} in the release assets."
+                f"Could not find an asset named {ASSET_EXE_NAME}."
             )
             return
 
-        # download to temp
-        tmp = os.path.join(tempfile.gettempdir(), ASSET_EXE_NAME)
-        with requests.get(download_url, stream=True) as dl, open(tmp, "wb") as out:
+        # Download to temp file
+        tmp_path = os.path.join(tempfile.gettempdir(), ASSET_EXE_NAME)
+        with requests.get(download_url, stream=True) as dl, open(tmp_path, "wb") as out:
             shutil.copyfileobj(dl.raw, out)
 
-        # spawn a helper script to overwrite the running exe
+        # Spawn a short‐lived helper to overwrite the running EXE
         helper = f"""
-        import time, shutil, os
+        import time, shutil, os, sys
         time.sleep(1)
-        src = r'{tmp}'
+        src = r'{tmp_path}'
         dst = r'{os.path.abspath(sys.argv[0])}'
         shutil.copy(src, dst)
         """
         subprocess.Popen([sys.executable, "-c", helper], close_fds=True)
-        sys.exit()  # quit so the helper can overwrite
+        sys.exit()
 
     except Exception as e:
-        # optionally warn the user or just fail silently
-        print("Update check failed:", e)
-        
+        # If something goes wrong, we’ll just skip update silently
+        print("Update check failed:", e)        
 # ————————————————————————————————
 # 2) Paths & directories
 #————————————————————————————————
