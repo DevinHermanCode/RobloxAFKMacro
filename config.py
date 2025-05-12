@@ -31,10 +31,22 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox
 
+def get_current_version():
+    """ Fetch the latest release version from GitHub. """
+    try:
+        r = requests.get(GITHUB_RELEASES_API, timeout=5)
+        r.raise_for_status()
+        release = r.json()
+        latest_version = release.get("tag_name", "").lstrip("v")
+        return latest_version
+    except requests.RequestException as e:
+        print(f"Failed to fetch version from GitHub: {e}")
+        return "1.0"  # default version if GitHub fetch fails      
+
 # ──────────────────────────────────────────────
 # 1) Your current version
 # ──────────────────────────────────────────────
-CURRENT_VERSION = "1.2"  # update this on each release
+CURRENT_VERSION = get_current_version()  # update on each release
 CONFIG_VERSION = 2 # update this for major config file handling changes
 # ──────────────────────────────────────────────
 # GitHub API for repo’s latest release
@@ -79,6 +91,11 @@ def check_for_updates():
         if not messagebox.askyesno("Update Available", prompt):
             return
 
+        # If the user presses "No", return without doing anything further
+        if not messagebox.askyesno("Update Available", prompt):
+            print("User declined the update.")
+            return  # Exit the update function early if the user declines
+        
         # Find the .exe asset
         download_url = next(
             (a["browser_download_url"]
@@ -111,7 +128,8 @@ def check_for_updates():
 
     except Exception as e:
         # If something goes wrong, we’ll just skip update silently
-        print("Update check failed:", e)        
+        print("Update check failed:", e)  
+        
 # ————————————————————————————————
 # 2) Paths & directories
 #————————————————————————————————
