@@ -1,0 +1,20 @@
+# Python caches
+__pycache__/
+*.py[cod]
+
+# PyInstaller build folders
+/build/
+/dist/
+/Yet_Another_Roblox_AFK_Macro.spec
+
+# PyInstaller intermediate files
+*.toc
+*.log
+*.exe     # if you don’t want to check in test builds either
+*.pyz
+*.manifest
+*.tmp
+*.pyc
+
+# Other
+*.egg-info/

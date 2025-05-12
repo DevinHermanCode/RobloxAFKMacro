@@ -7,10 +7,7 @@ import base64
 import shutil
 import tempfile
 import subprocess
-try:
-    import requests
-except ImportError:
-    requests = None
+import requests
 import tkinter as tk
 from tkinter import messagebox
 from threading import Thread, Event
@@ -37,7 +34,7 @@ from tkinter import messagebox
 # ──────────────────────────────────────────────
 # 1) Your current version
 # ──────────────────────────────────────────────
-CURRENT_VERSION = "1.1"  # update this on each release
+CURRENT_VERSION = "1.0"  # update this on each release
 
 # GitHub API for repo’s latest release
 GITHUB_RELEASES_API = (
@@ -59,8 +56,7 @@ def to_tuple(v: str) -> tuple[int, int, int]:
     return tuple(nums[:3])
 
 def check_for_updates():
-    if not requests:
-        return
+    print("DEBUG✔ Checking for updates…", "CURRENT:", CURRENT_VERSION)
 
     try:
         r = requests.get(GITHUB_RELEASES_API, timeout=5)
@@ -68,7 +64,9 @@ def check_for_updates():
         release = r.json()
 
         latest = release.get("tag_name", "").lstrip("v")
+        print("DEBUG✔ Latest release tag:", latest)
         if not latest or to_tuple(latest) <= to_tuple(CURRENT_VERSION):
+            print("DEBUG✔ Up to date, no update needed")
             return  # already up to date
 
         root = tk.Tk(); root.withdraw()
