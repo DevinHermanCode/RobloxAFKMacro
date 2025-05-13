@@ -31,6 +31,14 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox
 
+# ──────────────────────────────────────────────
+# GitHub API for repo’s latest release
+GITHUB_RELEASES_API = (
+    "https://api.github.com/repos/"
+    "OnixProgramming/RobloxAFKMacro/releases/latest"
+)
+ASSET_EXE_NAME  = "Yet_Another_Roblox_AFK_Macro.exe"
+# ──────────────────────────────────────────────
 def get_current_version():
     """ Fetch the latest release version from GitHub. """
     try:
@@ -42,19 +50,9 @@ def get_current_version():
     except requests.RequestException as e:
         print(f"Failed to fetch version from GitHub: {e}")
         return "1.0"  # default version if GitHub fetch fails      
-
-# ──────────────────────────────────────────────
-# 1) Your current version
 # ──────────────────────────────────────────────
 CURRENT_VERSION = get_current_version()  # update on each release
 CONFIG_VERSION = 2 # update this for major config file handling changes
-# ──────────────────────────────────────────────
-# GitHub API for repo’s latest release
-GITHUB_RELEASES_API = (
-    "https://api.github.com/repos/"
-    "OnixProgramming/RobloxAFKMacro/releases/latest"
-)
-ASSET_EXE_NAME  = "Yet_Another_Roblox_AFK_Macro.exe"
 # ──────────────────────────────────────────────
 
 def to_tuple(v: str) -> tuple[int, int, int]:
